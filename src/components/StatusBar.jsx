@@ -1,13 +1,19 @@
+import React from 'react';
+
 export default function StatusBar({ latencyMs, telemetry, connected }) {
-  const badge = (txt) => <span className="badge">{txt}</span>;
+  const badge = (txt, isOk) => <span className={`badge ${isOk ? 'ok' : 'err'}`}>{txt}</span>;
   const lat = latencyMs == null ? "—" : `${latencyMs} ms`;
+  
+  const status = telemetry?.status?.toUpperCase() ?? "—";
+  const statusClass = status === 'EXECUTING_TASK' ? 'ok' : (status === 'WAITING' ? 'warn' : 'err');
+
   return (
     <div className="statusbar">
-      {badge("Admin")}
-      <span> Batería: <b>{telemetry?.battery ?? "—"}%</b></span>
-      <span> Estado: <b>{telemetry?.status ?? "—"}</b></span>
-      <span> Modo: <b>{telemetry?.mode ?? "—"}</b></span>
-      <span> Torre: <b>{telemetry?.mast ?? "—"}</b></span>
+      {badge("Admin", true)}
+      <span> Conexión: {connected ? badge("CONECTADO", true) : badge("DESCONECTADO", false)}</span>
+      <span className={`status-badge ${statusClass}`}>{status}</span>
+      <span> Modo: <b>{telemetry?.mode?.toUpperCase() ?? "—"}</b></span>
+      <span> Torre: <b>{telemetry?.mast?.toUpperCase() ?? "—"}</b></span>
       <span className={`lat ${connected ? 'ok':'err'}`}>{lat}</span>
     </div>
   );
