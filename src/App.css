@@ -201,27 +201,164 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family: 'Inter', s
 .btn.primary { background:var(--accent);color:#fff}
 .btn.err { background: var(--err); color: #fff; }
 
-/* Robot Selector Page Styles (Se mantienen) */
+/* === Robot Selector Page Styles (corregido) === */
 .selector-page {
-    grid-column: 2 / 3; 
-    padding: 40px;
-    width: 100%;
+  grid-column: 2 / 3;
+  padding: 40px;
+  width: 100%;
+  display: block;
 }
+
+/* Grid de robots */
 .robot-grid {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
 }
 
-@media (max-width: 1024px){
-  .app{ grid-template-columns: 1fr }
-  .sidebar{ display:none }
-  .kpis{ grid-template-columns: 1fr; }
-  /* En tablet, la cuadrícula de imágenes pasa a 2 columnas */
-  .image-grid { grid-template-columns: repeat(2, 1fr); }
-  .main{ padding:16px; }
-  .selector-page { padding: 16px; }
+/* Tarjeta de título */
+.title-card {
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 18px 20px;
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0,0,0,.25) inset;
+  margin-bottom: 18px;
+}
+.title-card h1 { margin: 0 0 6px; }
+.title-card .muted { color: var(--muted); }
+
+/* Tarjetas de robot */
+.robot-card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  box-shadow: 0 10px 25px rgba(0,0,0,.35);
 }
 
-@media (max-width: 600px){
-    /* En móvil más pequeño, la cuadrícula de imágenes pasa a 1 columna */
-    .image-grid { grid-template-columns: 1fr; }
+.robot-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: 0 10px 30px rgba(139, 92, 246, .3);
 }
+
+/* Título dentro de la card */
+.robot-card h2 {
+  margin: 10px 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Icono de rayo */
+.robot-card > svg {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  color: var(--accent);
+  filter: drop-shadow(0 2px 6px rgba(139,92,246,.45));
+}
+
+/* Icono flecha */
+.select-icon {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  opacity: .9;
+}
+
+/* Fila de estado y batería */
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.battery-info { color: var(--muted); }
+
+/* Badges de estado */
+.status-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+}
+.status-badge.ok {
+  color: var(--ok);
+  background: rgba(33, 192, 122, 0.15);
+  border-color: rgba(33, 192, 122, 0.3);
+}
+.status-badge.warn {
+  color: var(--warn);
+  background: rgba(255, 183, 0, 0.15);
+  border-color: rgba(255, 183, 0, 0.3);
+}
+.status-badge.err {
+  color: var(--err);
+  background: rgba(255, 84, 104, 0.15);
+  border-color: rgba(255, 84, 104, 0.3);
+}
+
+/* === FIX DURO: que el selector muestre las cards sí o sí === */
+main.selector-page { display:block !important; }
+
+.selector-page .robot-grid{
+  display:grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+  gap:18px !important;
+  align-items: stretch;
+}
+
+.selector-page .robot-card{
+  display:block !important;
+  position:relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  color: var(--text);
+  box-shadow: 0 10px 25px rgba(0,0,0,.35);
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s, border-color .2s;
+}
+
+.selector-page .robot-card:hover{
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: 0 10px 30px rgba(139, 92, 246, .3);
+}
+
+.selector-page .robot-card h2{
+  margin: 10px 0 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.selector-page .robot-card > svg{
+  position:absolute; top:14px; left:14px; color:var(--accent);
+  filter: drop-shadow(0 2px 6px rgba(139,92,246,.45));
+}
+
+.selector-page .select-icon{ position:absolute; bottom:12px; left:14px; opacity:.9; }
+
+.selector-page .status-row{ display:flex; gap:12px; align-items:center; font-size:14px; }
+.selector-page .battery-info{ color:var(--muted); }
+
+.selector-page .status-badge{
+  display:inline-block; font-size:12px; font-weight:700; letter-spacing:.02em;
+  padding:4px 8px; border-radius:999px; border:1px solid transparent; text-transform:uppercase;
+}
+.selector-page .status-badge.ok   { color:var(--ok);   background:rgba(33,192,122,.15); border-color:rgba(33,192,122,.3); }
+.selector-page .status-badge.warn { color:var(--warn); background:rgba(255,183,0,.15);  border-color:rgba(255,183,0,.3); }
+.selector-page .status-badge.err  { color:var(--err);  background:rgba(255,84,104,.15); border-color:rgba(255,84,104,.3); }

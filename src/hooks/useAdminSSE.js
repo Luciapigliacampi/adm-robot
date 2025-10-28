@@ -1,93 +1,195 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
-const API_BASE = "http://localhost:3000"; 
-const SSE_BASE_URL = `${API_BASE}/api/status/stream`;
+const API = import.meta.env.VITE_API_BASE;
 
-// Hook que recibe el robotId seleccionado
-export default function useAdminSSE(robotId) {
-  const esRef = useRef(null);
-  const hbRef = useRef(null);
-  const [connected, setConnected] = useState(false);
-  const [latencyMs, setLatencyMs] = useState(null);
+// Feature flags (por .env)
+const ENABLE_SENSORS = import.meta.env.VITE_ENABLE_SENSORS === "1";
+const SENSORS_PATH   = import.meta.env.VITE_SENSORS_PATH || "/api/sensors";
+const FAKE_TLM       = import.meta.env.VITE_FAKE_TELEMETRY === "1";
 
-  const [telemetry, setTelemetry] = useState(null); 
-  const [snapshot, setSnapshot] = useState(null); 
-  
-  // Excluidos del panel, pero mantenidos para estructura
-  const [series] = useState([]); 
-  const [logs] = useState([]); 
+/**
+ * useAdminSSE
+ * - Modo demo si el robotId empieza con "demo-"
+ * - SSE real si es un ID válido de la base
+ */
+export default function useAdminSSE(robotId = "R1") {
+  const isDemo = typeof robotId === "string" && robotId.startsWith("demo-");
 
-  const measureLatency = useCallback(async () => {
-    if (!robotId) return;
-    const t0 = Date.now();
+  const [connected, setConnected]   = useState(false);
+  const [latencyMs, setLatencyMs]   = useState(null);
+  const [telemetry, setTelemetry]   = useState(null);
+  const [snapshot, setSnapshot]     = useState(null);
+  const [series, setSeries]         = useState([]);
+  const [logs, setLogs]             = useState([]);
+
+  const statusES = useRef(null);
+  const mainES   = useRef(null);
+  const tickId   = useRef(null);
+
+  const push = useCallback((setter, item, max = 200) => {
+    setter((prev) => [item, ...prev].slice(0, max));
+  }, []);
+
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+  // ==========================================================
+  // 🧠 MODO DEMO → genera datos falsos (sin conectar SSE)
+  // ==========================================================
+  useEffect(() => {
+    if (!isDemo) return;
+    console.log("🟢 DEMO MODE activo para", robotId);
+
+    setConnected(true);
+    setLatencyMs(5);
+
+    let i = 0;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const fakeBattery = Math.max(10, 100 - ((now / 1000) % 90));
+      const fakeSpeed   = Math.abs(Math.sin(now / 1500)).toFixed(2);
+      const fakeDist    = (i += Number(fakeSpeed));
+
+      setTelemetry({
+        battery: Number(fakeBattery.toFixed(1)),
+        v: Number(fakeSpeed),
+        dist: Number(fakeDist.toFixed(1)),
+        mode: "manual",
+        status: "idle",
+      });
+
+      setSeries((s) => [...s.slice(-59), { x: now, y: Number(fakeBattery.toFixed(1)) }]);
+    }, 800);
+
+    return () => clearInterval(timer);
+  }, [isDemo, robotId]);
+
+  // ==========================================================
+  // 🔌 MODO REAL → SSE + Sensores + FakeTelemetry opcional
+  // ==========================================================
+  const applyFakeTelemetry = useCallback((base) => {
+    if (!FAKE_TLM) return base;
+    const prevB = Number.isFinite(base?.battery) ? base.battery : 72;
+    const prevV = Number.isFinite(base?.v) ? base.v : 0.15;
+    const prevD = Number.isFinite(base?.dist) ? base.dist : 0;
+
+    const v = clamp(prevV + (Math.random() - 0.5) * 0.08, 0, 0.5);
+    const battery = clamp(prevB + (Math.random() - 0.55) * 0.8, 5, 100);
+    const dist = prevD;
+
+    return { ...base, v, battery, dist };
+  }, []);
+
+  const bumpFakeDistance = useCallback(() => {
+    if (!FAKE_TLM) return;
+    setTelemetry((t) => {
+      if (!t) return t;
+      const next = { ...t, dist: Number(t.dist || 0) + Number(t.v || 0) * 2 };
+      return next;
+    });
+  }, []);
+
+  const enrichWithSensors = useCallback(async (baseTlm) => {
     try {
-      await fetch(`${API_BASE}/health`, { cache: "no-store" });
-      setLatencyMs(Date.now() - t0);
+      if (!ENABLE_SENSORS) return baseTlm;
+      const path = SENSORS_PATH.replace(":robotId", robotId);
+      const res = await fetch(`${API}${path}`);
+      if (!res.ok) return baseTlm;
+      const data = await res.json();
+      const last = Array.isArray(data?.readings) ? data.readings[0] : data?.last || null;
+      if (!last) return baseTlm;
+      const t = { ...baseTlm };
+      if (last.speed    != null && t.v    == null) t.v    = last.speed;
+      if (last.distance != null && t.dist == null) t.dist = last.distance;
+      if (last.battery  != null && t.battery == null) t.battery = last.battery;
+      return t;
     } catch {
-      setLatencyMs(null);
+      return baseTlm;
     }
   }, [robotId]);
 
+  // --- SSE Real ---
   useEffect(() => {
-    // No conectarse si no hay robot seleccionado
-    if (!robotId) return;
-    
-    // Conectamos a la URL específica del robot
-    // NOTA: El back-end debe leer el query parameter "robotId"
-    const sseUrl = `${SSE_BASE_URL}?robotId=${robotId}`;
-    const es = new EventSource(sseUrl, { withCredentials: false });
-    esRef.current = es;
-    
-    // Limpiamos los estados al cambiar de robot
-    setTelemetry(null);
-    setSnapshot(null);
+    if (isDemo) return; // 🚫 no abrir conexión si es demo
+    console.log("🔵 SSE REAL activo para", robotId);
 
-    const onOpen = () => { 
-      setConnected(true); 
-      measureLatency(); 
-    };
+    statusES.current = new EventSource(`${API}/api/status/stream`);
+    let lastTick = Date.now();
 
-    const onError = () => { 
-      setConnected(false); 
-    };
-
-    const onTelemetry = (ev) => {
+    statusES.current.onmessage = async (e) => {
       try {
-        const data = JSON.parse(ev.data);
-        
-        // Asumimos que la telemetría incluye el robotId, si no, se procesa
-        if (data.robotId === robotId || !data.robotId) { 
-            setTelemetry(data);
-            
-            // Simulación de instantánea (si la telemetría incluye URL)
-            if (data.snapshotUrl) {
-                setSnapshot({
-                    url: data.snapshotUrl,
-                    description: data.imageDesc || data.currentTask || 'Imagen capturada',
-                    ts: data.timestamp || Date.now(),
-                });
-            }
+        const data = JSON.parse(e.data) || {};
+        let tlm = {
+          status:  data.status,
+          mode:    data.mode,
+          battery: data.battery ?? data.batt ?? null,
+          v:       data.speed   ?? data.v    ?? null,
+          dist:    data.distance?? data.dist ?? null,
+          timestamp: data.timestamp ?? Date.now(),
+        };
+
+        if (data?.snapshotUrl || data?.image?.url) {
+          setSnapshot({
+            url: data.snapshotUrl ?? data.image.url,
+            description: data?.image?.description ?? "",
+            ts: Date.now(),
+          });
         }
-      } catch (e) {
-        console.error("Error parsing telemetry:", e);
-      }
+
+        tlm = await enrichWithSensors(tlm);
+        tlm = applyFakeTelemetry({ ...(telemetry || {}), ...tlm });
+
+        setTelemetry((prev) => {
+          const next = { ...(prev || {}), ...tlm };
+          if (typeof next.battery === "number") {
+            setSeries((s) => [...s.slice(-49), { x: Date.now(), y: next.battery }]);
+          }
+          return next;
+        });
+
+        const now = Date.now();
+        setLatencyMs(Math.max(0, now - lastTick - 2000));
+        lastTick = now;
+        setConnected(true);
+      } catch {}
     };
 
-    es.addEventListener("open", onOpen);
-    es.addEventListener("error", onError);
-    es.addEventListener("telemetry", onTelemetry);
+    statusES.current.onerror = () => setConnected(false);
 
-    // Medir latencia cada 10s
-    const id = setInterval(measureLatency, 10000);
+    // STREAM principal (eventos)
+    mainES.current = new EventSource(`${API}/api/stream`);
+    const on = (n, h) => mainES.current.addEventListener(n, h);
+    const off = (n, h) => mainES.current.removeEventListener(n, h);
+
+    const onEvent = (type) => (e) => push(setLogs, { type, data: safe(e.data), ts: Date.now() });
+    const onNewImage = (e) => {
+      const d = safe(e.data);
+      push(setLogs, { type: "new_image", data: d, ts: Date.now() });
+      if (d?.url) setSnapshot({ url: d.url, description: d.description || "", ts: Date.now() });
+    };
+
+    on("robot_connected", onEvent("robot_connected"));
+    on("robot_disconnected", onEvent("robot_disconnected"));
+    on("ack_received", onEvent("ack_received"));
+    on("robot_error", onEvent("robot_error"));
+    on("new_image", onNewImage);
+
+    tickId.current = setInterval(bumpFakeDistance, 2000);
 
     return () => {
-      if (id) clearInterval(id);
-      es.removeEventListener("open", onOpen);
-      es.removeEventListener("error", onError);
-      es.removeEventListener("telemetry", onTelemetry);
-      try { es.close(); } catch {}
+      clearInterval(tickId.current);
+      try { statusES.current?.close(); } catch {}
+      try { mainES.current?.close(); } catch {}
+      if (mainES.current) {
+        off("robot_connected", onEvent("robot_connected"));
+        off("robot_disconnected", onEvent("robot_disconnected"));
+        off("ack_received", onEvent("ack_received"));
+        off("robot_error", onEvent("robot_error"));
+        off("new_image", onNewImage);
+      }
     };
-  }, [robotId, measureLatency]);
+  }, [robotId, isDemo]);
 
-  return { connected, latencyMs, telemetry, snapshot, series, logs }; 
+  return { connected, latencyMs, telemetry, snapshot, series, logs };
 }
+
+function safe(s) { try { return JSON.parse(s); } catch { return null; } }
