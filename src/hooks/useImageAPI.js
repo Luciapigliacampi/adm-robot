@@ -1,35 +1,26 @@
-import { useState, useEffect, useCallback } from 'react';
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API = import.meta.env.VITE_API_BASE;
 
-export const useImageAPI = (robotId) => {
-  const [images, setImages] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+async function j(path, { method = "GET", body, headers } = {}) {
+  const res = await fetch(`${API}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...(headers || {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json().catch(() => ({}));
+}
 
-  const fetchImages = useCallback(async () => {
-    if (!robotId) { setImages([]); return; }
-    setIsLoading(true); setError(null);
-    try {
-      // Opción Mongo:
-      const res = await fetch(`${API_BASE}/api/robot/image?robotId=${encodeURIComponent(robotId)}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error('Error al cargar imágenes');
-      const data = await res.json();
-      setImages((data.images || []).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)));
+export function useImageAPI() {
+  const list = async ({ page = 1, limit = 24 } = {}) =>
+    j(`/api/images?page=${page}&limit=${limit}`);
 
-      // Opción simulada (si preferís usar el webhook en memoria):
-      // const res = await fetch(`${API_BASE}/api/webhook/images`, { cache: 'no-store' });
-      // const data = await res.json();
-      // setImages((data.storedImages || []).sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)));
+  const analyze = async (url) =>
+    j(`/api/images/analyze`, { method: "POST", body: { url } });
 
-    } catch (e) {
-      console.error('Fetch Images Error:', e);
-      setError('No se pudieron cargar las imágenes históricas.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [robotId]);
+  const scanQrUrl = async (url) =>
+    j(`/api/images/scan-qr/url`, { method: "POST", body: { url } });
 
-  useEffect(() => { fetchImages(); }, [fetchImages]);
+  const byId = async (id) => j(`/api/images/${id}`);
 
-  return { images, isLoading, error, refetch: fetchImages };
-};
+  return { list, analyze, scanQrUrl, byId };
+}

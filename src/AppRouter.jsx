@@ -4,6 +4,8 @@ import RobotSelector from "./pages/RobotSelector";
 import AdminDashboard from "./pages/AdminDashboard";
 import ConfigPage from "./pages/ConfigPage";
 import Sidebar from "./components/Sidebar";
+import Gallery from "./pages/Gallery.jsx";  // Imágenes
+import Logs from "./pages/Logs.jsx";        // Registros
 
 export default function AppRouter() {
     
@@ -22,6 +24,12 @@ export default function AppRouter() {
                     path="/dashboard/:robotId" 
                     element={<AdminDashboard />} 
                 />
+
+        {/* NUEVO: Imágenes por robot */}
+        <Route path="/dashboard/:robotId/images" element={<Gallery />} />
+
+        {/* NUEVO: Registros por robot */}
+        <Route path="/dashboard/:robotId/logs" element={<Logs />} />
 
                 {/* Página Específica de Configuración */}
                 <Route 
