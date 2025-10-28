@@ -22,6 +22,7 @@ function normalize(robot) {
  * (1 atado al ID real de Mongo, 2 de ejemplo).
  */
 export async function fetchRobotsFromApi() {
+
   // 1) Intento real
   try {
     const res = await fetch(`${API}/api/robots`, { cache: "no-store" });
