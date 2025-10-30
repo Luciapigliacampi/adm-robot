@@ -1,10 +1,11 @@
 // src/pages/AdminDashboard.jsx
-import React, { useEffect } from "react";
-import { useParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
 import useAdminSSE from "../hooks/useAdminSSE";
 import SimpleLineChart from "../components/SimpleLineChart";
 import KpiCard from "../components/KpiCard";
 import SnapshotCard from "../components/SnapshotCard";
+import { useImageAPI } from "../hooks/useImageAPI";
 
 // ---- Helpers básicos para notificaciones nativas ----
 const canNotify = () => typeof window !== "undefined" && "Notification" in window;
@@ -22,18 +23,22 @@ function showNative({ title, body }) {
   try {
     new Notification(title, {
       body,
-      icon: "/icons/icon-192.png", // si no existe, quita esta línea
+      icon: "/icons/icon-192.png", // si no existe, quitar
       badge: "/icons/icon-192.png",
     });
     return true;
-  } catch (e) {
+  } catch {
     return false;
   }
 }
 
 export default function AdminDashboard() {
-const { robotId } = useParams();     
-  const { connected, latencyMs, telemetry, snapshot, series, logs } = useAdminSSE("R1");
+  const { robotId } = useParams();
+  // ✅ ÚNICA llamada al hook
+  const { connected, latencyMs, telemetry, snapshot, series, logs } = useAdminSSE(robotId || "R1");
+
+  const api = useImageAPI();
+  const [thumbs, setThumbs] = useState([]);
 
   const battery = telemetry?.battery ?? null;
   const speed   = telemetry?.v ?? null;
@@ -41,12 +46,19 @@ const { robotId } = useParams();
   const mode    = telemetry?.mode ?? "—";
   const state   = telemetry?.status ?? "—";
 
-   useAdminSSE(robotId); 
-
-  // Pide permiso una vez (si el navegador lo soporta)
+  // Cargar 3 imágenes recientes (filtra por robotId si el back lo incluye)
   useEffect(() => {
-    ensurePermission();
-  }, []);
+    (async () => {
+      try {
+        const { images } = await api.list({ page: 1, limit: 24 });
+        const all = Array.isArray(images) ? images : [];
+        const filtered = all.filter(i => !i.robotId || i.robotId === (robotId || "R1"));
+        setThumbs((filtered.length ? filtered : all).slice(0, 3));
+      } catch {
+        setThumbs([]);
+      }
+    })();
+  }, [robotId]);
 
   const onTestNotify = async () => {
     const { ok, reason } = await ensurePermission();
@@ -77,19 +89,31 @@ const { robotId } = useParams();
       </div>
 
       {/* KPIs */}
-      <div
-        className="grid kpis"
-        style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}
-      >
-        <KpiCard
-          title="Conexión"
-          value={connected ? "Conectado" : "Desconectado"}
-          hint={latencyMs != null ? `${latencyMs} ms` : "—"}
-          ok={connected}
-        />
-        <KpiCard title="Batería" value={battery != null ? `${battery}%` : "—"} unit="" />
-        <KpiCard title="Velocidad" value={speed != null ? speed : "—"} unit="m/s" />
-        <KpiCard title="Distancia" value={dist != null ? dist : "—"} unit="m" />
+      <div className="grid kpis" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        <KpiCard title="Conexión" value={connected ? "Conectado" : "Desconectado"} />
+        <KpiCard title="Batería" value={battery != null ? battery : "—"} suffix="%" />
+        <KpiCard title="Velocidad" value={speed != null ? speed : "—"} suffix=" m/s" />
+        <KpiCard title="Distancia" value={dist != null ? dist : "—"} suffix=" m" />
+      </div>
+
+      {/* Imágenes recientes */}
+      <div className="card">
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+          <div className="muted">Imágenes recientes</div>
+          {/* ✅ ruta corregida */}
+          <Link className="link" to={`/imagenes/${robotId}`}>Ver más</Link>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8 }}>
+          {thumbs.map((i,idx) => (
+            <img
+              key={i._id || idx}
+              src={i.url || i.path || i.imageUrl}
+              alt={i.label || ""}
+              style={{ width:'100%', height:100, objectFit:'cover', borderRadius:8 }}
+            />
+          ))}
+          {thumbs.length === 0 && <div className="muted">Sin imágenes</div>}
+        </div>
       </div>
 
       {/* Snapshot + Telemetría */}
@@ -115,11 +139,7 @@ const { robotId } = useParams();
             <div>Detalle</div>
             <div>Hora</div>
           </div>
-          {logs.length === 0 ? (
-            <div className="muted" style={{ padding: 8 }}>
-              Sin eventos
-            </div>
-          ) : (
+          {Array.isArray(logs) && logs.length > 0 ? (
             logs.slice(0, 20).map((l, i) => (
               <div className="tr" key={i}>
                 <div>{l.type || l.level || "log"}</div>
@@ -131,6 +151,8 @@ const { robotId } = useParams();
                 <div>{new Date(l.ts || Date.now()).toLocaleTimeString()}</div>
               </div>
             ))
+          ) : (
+            <div className="muted" style={{ padding: 8 }}>Sin eventos</div>
           )}
         </div>
       </div>

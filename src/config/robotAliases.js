@@ -1,3 +1,4 @@
+// src/config/robotAliases.js
 export const aliasName = {
   R1: "LiftCore-R1 (Fábrica A)",
   R2: "LiftCore-R2 (Almacén B)",
