@@ -6,10 +6,13 @@ import ConfigPage from "./pages/ConfigPage";
 import Sidebar from "./components/Sidebar";
 import Gallery from "./pages/Gallery.jsx";  // Imágenes
 import Logs from "./pages/Logs.jsx";        // Registros
+import RequireAuth from "./components/RequireAuth.jsx";
+
 
 export default function AppRouter() {
     
     return (
+    <RequireAuth>
         <div className="app">
             <Sidebar />
             <Routes>
@@ -41,5 +44,6 @@ export default function AppRouter() {
                 <Route path="*" element={<main className="main"><h1 style={{padding: 20}}>404 - No Encontrado</h1></main>} />
             </Routes>
         </div>
+    </RequireAuth>
     );
 }

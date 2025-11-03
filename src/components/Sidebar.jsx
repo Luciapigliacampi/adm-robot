@@ -1,9 +1,11 @@
 import { Link, useParams, useLocation } from "react-router-dom";
-import { Settings, Zap, Globe, Activity, LayoutDashboard } from "lucide-react";
+import { Settings, Zap, Globe, Activity, LayoutDashboard, LogOut } from "lucide-react";
+import { useAuth0 } from "@auth0/auth0-react";
 
 export default function Sidebar() {
   const { robotId } = useParams();
   const location = useLocation();
+   const { logout: auth0Logout } = useAuth0();
 
   // Base y rutas dependientes del robot
   const basePath   = robotId ? `/dashboard/${robotId}` : "/";
@@ -25,6 +27,15 @@ export default function Sidebar() {
   // Helper para clase
   const navClass = (active, disabled) =>
     `navbtn ${active ? "active" : ""} ${disabled ? "disabled" : ""}`;
+
+   const handleLogout = () => {
+    auth0Logout({ returnTo: window.location.origin });
+    // limpiar localStorage
+    localStorage.removeItem("dashboardToken");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("auth0Id");
+    localStorage.removeItem("email");
+  };
 
   return (
     <aside className="sidebar" style={{display:'flex', flexDirection:'column', height:'100vh'}}>
@@ -75,6 +86,12 @@ export default function Sidebar() {
         >
           <Settings size={16} /> Configuración
         </Link>
+         <button
+          className="navbtn logout-btn"
+          onClick={handleLogout}
+        >
+          <LogOut size={16} /> Cerrar Sesión
+        </button>
       </nav>
       {/* Footer: botón Cerrar sesión al pie */}
       <div style={{ marginTop:'auto', padding:12, borderTop:'1px solid rgba(255,255,255,.06)' }}>
