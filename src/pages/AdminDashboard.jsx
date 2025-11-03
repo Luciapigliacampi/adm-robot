@@ -129,7 +129,7 @@ export default function AdminDashboard() {
       {/* Snapshot + Telemetría */}
       <div className="grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 12 }}>
         {/* Si tu SnapshotCard espera 'snapshot', dejalo así: */}
-<SnapshotCard images={snapshot ? [snapshot] : []} isLoading={!snapshot && !connected} />
+        <SnapshotCard snapshot={snapshot} />
         {/* Si espera una lista de imágenes, usá esta (y borra la de arriba):
            <SnapshotCard images={snapshot ? [snapshot] : []} isLoading={!snapshot && !connected} />
         */}
