@@ -27,7 +27,8 @@ export default function Sidebar() {
     `navbtn ${active ? "active" : ""} ${disabled ? "disabled" : ""}`;
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" style={{display:'flex', flexDirection:'column', height:'100vh'}}>
+
       <Link to="/" className="logo-link">
         <div className="logo">
           <Zap size={24} color="#8b5cf6" /> LiftCore Admin
@@ -75,6 +76,17 @@ export default function Sidebar() {
           <Settings size={16} /> Configuración
         </Link>
       </nav>
+      {/* Footer: botón Cerrar sesión al pie */}
+      <div style={{ marginTop:'auto', padding:12, borderTop:'1px solid rgba(255,255,255,.06)' }}>
+        <button
+          className="navbtn"
+          style={{ width:'100%', textAlign:'center' }}
+          onClick={() => (window.auth0Logout ? window.auth0Logout() : (window.location.href = '/'))}
+        >
+          Cerrar sesión
+        </button>
+      </div>
+
     </aside>
   );
 }

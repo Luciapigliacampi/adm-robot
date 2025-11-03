@@ -3,16 +3,16 @@ import React, { useEffect, useState } from "react";
 import { Zap, CornerDownRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { fetchRobotsFromApi } from "../services/robots";
-import { aliasName } from "../config/robotAliases";
+import { aliasName, setAliasDbId } from "../config/robotAliases";
 
 
 export default function RobotSelector() {
   const navigate = useNavigate();
   const [robots, setRobots] = useState([]);
 
-   useEffect(() => {
-     (async () => {
-      const realFromEnv = import.meta.env.VITE_ROBOT_ID || "R1";
+  useEffect(() => {
+    (async () => {
+const realFromEnv = import.meta.env.VITE_ROBOT_ID || "R1";
       const real = await fetchRobotsFromApi().catch(() => []);
       const r1db = Array.isArray(real) && real.length ? (real[0].dbId || null) : null;
       const list = [
@@ -21,8 +21,9 @@ export default function RobotSelector() {
         { alias: "R3", name: aliasName.R3, status: "Offline",  battery: 33, dbId: null, fake: true },
       ];
       setRobots(list);
-     })();
-   }, []);
+
+    })();
+  }, []);
 
   const handleRobotSelect = (alias) => navigate(`/dashboard/${alias}`);
 

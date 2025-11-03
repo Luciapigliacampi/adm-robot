@@ -7,8 +7,6 @@ const FALLBACK_DB_ID = import.meta.env.VITE_ROBOT_ID || null;
  * Debe devolver objetos con: { dbId, name, status, battery }
  */
 export async function fetchRobotsFromApi() {
-
-  // 1) Intento real
   try {
     // Ajusta el endpoint si tu backend usa otro (por ejemplo /api/robots/list)
     const res = await fetch(`${API}/api/robots`, { cache: "no-store" });

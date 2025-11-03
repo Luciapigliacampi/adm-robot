@@ -1,66 +1,70 @@
+// src/components/SnapshotCard.jsx
 import React from "react";
-import { Camera, QrCode, ArrowRight, Waypoints, Loader2, RefreshCw } from "lucide-react";
 
-const getIconAndClass = (type) => {
-    switch (type) {
-        case 'qr': return { Icon: QrCode, color: 'var(--ok)' };
-        case 'sign': return { Icon: ArrowRight, color: 'var(--warn)' };
-        case 'sse': return { Icon: Camera, color: 'var(--accent)' };
-        default: return { Icon: Waypoints, color: 'var(--muted)' };
-    }
-}
+/**
+ * Acepta:
+ *  - images: array de imágenes [{ url | path | imageUrl | data }, ...]
+ *  - snapshot: una sola imagen (string u objeto) -> se convierte en [snapshot]
+ *  - isLoading: muestra estado de carga
+ *  - error: mensaje/objeto de error
+ *  - refetch: función opcional para reintentar carga
+ */
+export default function SnapshotCard({ images, snapshot, isLoading = false, error = null, refetch }) {
+  // Normalizamos a una lista única
+  const list = images ?? (snapshot ? [snapshot] : []);
 
-export default function SnapshotCard({ images = [], isLoading, error, refetch }) {
-    
-    return (
-        <div className="card full-width-images">
-            <div className="card-title">
-                Historial de Imágenes & Análisis de Objetos ({images.length} capturas)
-                {error && <span className="error-message">Error: {error}</span>}
-                {/* Botón de Refrescar (solo se habilita si no está cargando) */}
-                <button className="refresh-btn" onClick={refetch} disabled={isLoading} title="Recargar Historial">
-                    <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-                </button>
-            </div>
-            
-            {isLoading && (
-                <div className="placeholder-full loading">
-                    <Loader2 size={48} className="animate-spin" color="var(--accent)" />
-                    <p className="muted">Cargando historial de imágenes desde la base de datos...</p>
-                </div>
-            )}
+  // Helper para obtener el src de cada item (acepta distintos formatos)
+  const getSrc = (item) => {
+    if (!item) return "";
+    if (typeof item === "string") return item; // URL/base64 directa
+    return item.url || item.path || item.imageUrl || item.data || "";
+  };
 
-            {!isLoading && images.length === 0 ? (
-                <div className="placeholder-full">
-                    <Camera size={48} color="var(--muted)" /> 
-                    <p className="muted">No hay imágenes capturadas para este robot.</p>
-                </div>
-            ) : (
-                <div className="image-grid">
-                    {images.map((img, index) => {
-                        const { Icon, color } = getIconAndClass(img.type);
+  return (
+    <div className="card">
+      <div className="card-title" style={{ marginBottom: 8 }}>Últimas capturas</div>
 
-                        return (
-                            <div key={index} className="image-item">
-                                <div className="image-box">
-                                    <img 
-                                        src={img.url} 
-                                        alt={img.description} 
-                                        onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/800x600/4a5568/ffffff?text=Error"; }}
-                                    />
-                                </div>
-                                <div className="image-caption">
-                                    <Icon size={16} color={color} style={{ minWidth: 16 }}/>
-                                    <span className="description">{img.description}</span>
-                                    <span className="timestamp muted small">
-                                        {new Date(img.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+      {/* Estados */}
+      {isLoading && (
+        <div className="muted" style={{ padding: 8 }}>
+          Cargando…
         </div>
-    );
+      )}
+
+      {!isLoading && error && (
+        <div style={{ padding: 8, color: "tomato", display: "flex", alignItems: "center", gap: 8 }}>
+          <span>Error al cargar imágenes</span>
+          {refetch && (
+            <button className="btn" onClick={refetch} style={{ padding: "6px 10px" }}>
+              Reintentar
+            </button>
+          )}
+        </div>
+      )}
+
+      {!isLoading && !error && (!list || list.length === 0) && (
+        <div className="muted" style={{ padding: 8 }}>
+          Sin imágenes
+        </div>
+      )}
+
+      {/* Grid de imágenes */}
+      {!isLoading && !error && list && list.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          {list.slice(0, 3).map((it, idx) => {
+            const src = getSrc(it);
+            if (!src) return <div key={idx} className="muted" style={{ padding: 8 }}>Sin datos</div>;
+            return (
+              <img
+                key={it?._id || idx}
+                src={src}
+                alt={it?.label || "snapshot"}
+                style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 8 }}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }

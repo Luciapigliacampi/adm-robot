@@ -1,31 +1,61 @@
 // src/components/KpiCard.jsx
-export default function KpiCard({
-  title,
-  value,        // number | string | null
-  unit,         // "%", "m/s", "m", "km/h", etc.
-  hint,
-  ok,
-  digits = 0,   // cuántos decimales mostrar si value es número
-}) {
-  const n = typeof value === "number" ? value
-          : (typeof value === "string" && value.trim() !== "" && !isNaN(+value) ? +value : null);
+import React from "react";
 
-  const display = (n !== null && isFinite(n)) ? n.toFixed(digits)
-                  : (value ?? "—"); // si viene string tipo "Conectado", lo muestra; si null/undefined → "—"
+/**
+ * Props:
+ *  - title: string (etiqueta)
+ *  - value: string|number (valor principal)
+ *  - unit / suffix: string opcional (por ejemplo "%", "ms", "km/h")
+ *  - hint: string opcional (línea chica debajo, ej: "23 ms")
+ *  - ok: boolean opcional (true = estado OK, false = alerta; colorea el borde/indicador)
+ */
+export default function KpiCard({ title, value, unit, suffix, hint, ok }) {
+  const suf = unit ?? suffix ?? "";
+  const isOk = ok === undefined ? null : !!ok;
+
+  const border =
+    isOk === null ? "1px solid rgba(255,255,255,.08)" : isOk ? "1px solid rgba(34,197,94,.45)" : "1px solid rgba(239,68,68,.45)";
+  const glow =
+    isOk === null ? "none" : isOk ? "0 0 0 1px rgba(34,197,94,.25) inset" : "0 0 0 1px rgba(239,68,68,.25) inset";
 
   return (
-    <div className="card" style={{
-      display: "grid", alignContent: "center", gap: 6, minHeight: 96, padding: 16,
-      borderLeft: ok === undefined ? undefined : `4px solid ${ok ? "#10b981" : "#ef4444"}`
-    }}>
-      <div className="muted small" style={{ fontWeight: 700 }}>{title}</div>
+    <div
+      className="card"
+      style={{
+        border,
+        boxShadow: glow,
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        minHeight: 90,
+      }}
+    >
+      <div style={{ color: "#9aa4b2", fontSize: 12 }}>{title}</div>
 
-      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1 }}>{display}</div>
-        {unit ? <div className="muted" style={{ fontSize: 14, fontWeight: 700 }}>{unit}</div> : null}
+      <div style={{ fontSize: 22, fontWeight: 700, display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span>{value ?? "—"}</span>
+        {suf && <span style={{ fontSize: 12, color: "#9aa4b2" }}>{suf}</span>}
       </div>
 
-      {hint ? <div className="muted small" style={{ marginTop: 2 }}>{hint}</div> : null}
+      {hint ? (
+        <div style={{ fontSize: 12, color: "#9aa4b2", marginTop: 2 }}>
+          {hint}
+        </div>
+      ) : null}
+
+      {/* Indicador lateral de estado (opcional) */}
+      {isOk !== null && (
+        <div
+          aria-hidden
+          style={{
+            marginTop: 4,
+            height: 4,
+            borderRadius: 999,
+            background: isOk ? "linear-gradient(90deg, #16a34a, #22c55e)" : "linear-gradient(90deg, #ef4444, #f43f5e)",
+            opacity: 0.85,
+          }}
+        />
+      )}
     </div>
   );
 }

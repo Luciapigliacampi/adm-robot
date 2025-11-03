@@ -5,9 +5,9 @@ import AppRouter from './AppRouter.jsx'
 import './App.css' // Usamos App.css para los estilos del dashboard
 
 createRoot(document.getElementById('root')).render(
-<StrictMode>
+  <StrictMode>
         <BrowserRouter>
             <AppRouter />
         </BrowserRouter>
-</StrictMode>,
+  </StrictMode>,
 )

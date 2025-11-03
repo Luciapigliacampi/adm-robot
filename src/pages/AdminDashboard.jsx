@@ -23,7 +23,7 @@ function showNative({ title, body }) {
   try {
     new Notification(title, {
       body,
-      icon: "/icons/icon-192.png", // si no existe, quitar
+      icon: "/icons/icon-192.png",   // si no existe, quitá estas dos líneas
       badge: "/icons/icon-192.png",
     });
     return true;
@@ -34,6 +34,7 @@ function showNative({ title, body }) {
 
 export default function AdminDashboard() {
   const { robotId } = useParams();
+
   // ✅ ÚNICA llamada al hook
   const { connected, latencyMs, telemetry, snapshot, series, logs } = useAdminSSE(robotId || "R1");
 
@@ -46,11 +47,16 @@ export default function AdminDashboard() {
   const mode    = telemetry?.mode ?? "—";
   const state   = telemetry?.status ?? "—";
 
-  // Cargar 3 imágenes recientes (filtra por robotId si el back lo incluye)
+  // Pide permiso una vez (si el navegador lo soporta)
+  useEffect(() => {
+    ensurePermission();
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
         const { images } = await api.list({ page: 1, limit: 24 });
+        // Si las imágenes traen robotId, filtramos; si no, mostramos las últimas 3
         const all = Array.isArray(images) ? images : [];
         const filtered = all.filter(i => !i.robotId || i.robotId === (robotId || "R1"));
         setThumbs((filtered.length ? filtered : all).slice(0, 3));
@@ -90,18 +96,22 @@ export default function AdminDashboard() {
 
       {/* KPIs */}
       <div className="grid kpis" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        {/* Usa UNA de estas dos versiones según tu KpiCard: */}
+        {/* Versión A (si KpiCard soporta hint/ok): */}
+        <KpiCard title="Conexión" value={connected ? "Conectado" : "Desconectado"} hint={latencyMs != null ? `${latencyMs} ms` : "—"} ok={connected} />
+        {/* Versión B (si NO soporta hint/ok, descomenta y borra la de arriba):
         <KpiCard title="Conexión" value={connected ? "Conectado" : "Desconectado"} />
-        <KpiCard title="Batería" value={battery != null ? battery : "—"} suffix="%" />
-        <KpiCard title="Velocidad" value={speed != null ? speed : "—"} suffix=" m/s" />
-        <KpiCard title="Distancia" value={dist != null ? dist : "—"} suffix=" m" />
+        */}
+        <KpiCard title="Batería"  value={battery != null ? battery : "—"} unit="%" />
+        <KpiCard title="Velocidad" value={speed   != null ? speed   : "—"} unit="m/s" />
+        <KpiCard title="Distancia" value={dist    != null ? dist    : "—"} unit="m" />
       </div>
 
       {/* Imágenes recientes */}
       <div className="card">
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
           <div className="muted">Imágenes recientes</div>
-          {/* ✅ ruta corregida */}
-          <Link className="link" to={`/imagenes/${robotId}`}>Ver más</Link>
+          <Link className="link" to={`/dashboard/${robotId}/images`}>Ver más</Link>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8 }}>
           {thumbs.map((i,idx) => (
@@ -118,7 +128,11 @@ export default function AdminDashboard() {
 
       {/* Snapshot + Telemetría */}
       <div className="grid" style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 12 }}>
-        <SnapshotCard snapshot={snapshot} />
+        {/* Si tu SnapshotCard espera 'snapshot', dejalo así: */}
+<SnapshotCard images={snapshot ? [snapshot] : []} isLoading={!snapshot && !connected} />
+        {/* Si espera una lista de imágenes, usá esta (y borra la de arriba):
+           <SnapshotCard images={snapshot ? [snapshot] : []} isLoading={!snapshot && !connected} />
+        */}
         <div className="card">
           <div className="card-title">Telemetría</div>
           <div className="muted small">
@@ -152,7 +166,9 @@ export default function AdminDashboard() {
               </div>
             ))
           ) : (
-            <div className="muted" style={{ padding: 8 }}>Sin eventos</div>
+            <div className="muted" style={{ padding: 8 }}>
+              Sin eventos
+            </div>
           )}
         </div>
       </div>

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { useImageAPI } from "../hooks/useImageAPI";
 import ImageModal from "../components/ImageModal";
 
 export default function Gallery() {
   const api = useImageAPI();
+  const { robotId } = useParams();
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [images, setImages] = useState([]);
@@ -18,8 +20,10 @@ export default function Gallery() {
     setLoading(true);
     try {
       const { total, images } = await api.list({ page: p, limit });
-      setTotal(total || 0);
-      setImages(Array.isArray(images) ? images : []);
+      const arr = Array.isArray(images) ? images : [];
+const filtered = arr.filter(i => !i.robotId || i.robotId === (robotId || "R1"));
+      setTotal(total || filtered.length || arr.length || 0);
+      setImages(filtered.length ? filtered : arr);
     } catch (e) {
       console.error(e);
       alert("No se pudo cargar la galería.");
