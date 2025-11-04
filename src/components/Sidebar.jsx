@@ -5,7 +5,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 export default function Sidebar() {
   const { robotId } = useParams();
   const location = useLocation();
-   const { logout: auth0Logout } = useAuth0();
+const { logout: auth0Logout } = useAuth0();
 
   // Base y rutas dependientes del robot
   const basePath   = robotId ? `/dashboard/${robotId}` : "/";
@@ -95,11 +95,11 @@ export default function Sidebar() {
       </nav>
       {/* Footer: botón Cerrar sesión al pie */}
       <div style={{ marginTop:'auto', padding:12, borderTop:'1px solid rgba(255,255,255,.06)' }}>
-        <button
-          className="navbtn"
-          style={{ width:'100%', textAlign:'center' }}
-          onClick={() => (window.auth0Logout ? window.auth0Logout() : (window.location.href = '/'))}
-        >
+         <button
+    className="navbtn"
+    style={{ width:'100%', textAlign:'center' }}
+    onClick={() => auth0Logout({ logoutParams: { returnTo: window.location.origin } })}
+  >
           Cerrar sesión
         </button>
       </div>

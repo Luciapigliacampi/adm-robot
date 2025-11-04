@@ -6,6 +6,7 @@ import SimpleLineChart from "../components/SimpleLineChart";
 import KpiCard from "../components/KpiCard";
 import SnapshotCard from "../components/SnapshotCard";
 import { useImageAPI } from "../hooks/useImageAPI";
+import {isAdmin} from "../services/roles";
 
 // ---- Helpers básicos para notificaciones nativas ----
 const canNotify = () => typeof window !== "undefined" && "Notification" in window;
@@ -80,9 +81,26 @@ export default function AdminDashboard() {
     if (!done) alert("No se pudo mostrar la notificación (ver permisos del sitio).");
   };
 
+  const roles = window.__roles || []; // luego lo reemplazás por roles reales de Auth0
+
   return (
     <div className="main" style={{ display: "grid", gap: 16 }}>
       <h2>Panel de administración</h2>
+
+       {isAdmin() && (
+       <button
+         className="btn"
+         onClick={() => (window.location.href = `/control/${robotId || "R1"}`)}
+       >
+         Ir al Control Remoto
+       </button>
+     )}
+
+      {roles.includes("admin") && (
+  <button className="btn" onClick={() => (window.location.href = `/control/${robotId || 'R1'}`)}>
+    Ir al Control Remoto
+  </button>
+)}
 
       {/* Botón para probar notificaciones */}
       <button className="btn" onClick={onTestNotify}>
