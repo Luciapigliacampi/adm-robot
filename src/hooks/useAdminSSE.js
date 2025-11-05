@@ -57,7 +57,7 @@ export default function useAdminSSE(robotId = "R1") {
         status: "idle",
       });
 
-      setSeries((s) => [...s.slice(-59), { x: now, y: Number(fakeBattery.toFixed(1)) }]);
+      setSeries((s) => [...s.slice(-59), { x: now, y: Number(fakeDist.toFixed(1)) }]);
     }, 800);
 
     return () => clearInterval(timer);
@@ -140,10 +140,10 @@ export default function useAdminSSE(robotId = "R1") {
 
         setTelemetry((prev) => {
           const next = { ...(prev || {}), ...tlm };
-          if (typeof next.battery === "number") {
-            setSeries((s) => [...s.slice(-49), { x: Date.now(), y: next.battery }]);
-          }
-          return next;
+          if (typeof next.dist === "number") { // Importante: verifica si la dist existe
+    setSeries((s) => [...s.slice(-49), {x: Date.now(), y: next.dist }]); // CORREGIDO: Usar dist
+}
+return next;
         });
 
         const now = Date.now();

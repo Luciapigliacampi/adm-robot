@@ -1,26 +1,36 @@
-const API = import.meta.env.VITE_API_BASE;
+// src/hooks/useImageAPI.js
+const API = import.meta.env.VITE_API_BASE || "http://localhost:3000";
 
-async function j(path, { method = "GET", body, headers } = {}) {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: { "Content-Type": "application/json", ...(headers || {}) },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.json().catch(() => ({}));
+function normalize(listOrObj) {
+  if (!listOrObj) return [];
+  if (Array.isArray(listOrObj)) return listOrObj;
+  // admite {items:[]}, {images:[]} o similares
+  if (Array.isArray(listOrObj.items)) return listOrObj.items;
+  if (Array.isArray(listOrObj.images)) return listOrObj.images;
+  return [];
 }
 
-export function useImageAPI() {
-  const list = async ({ page = 1, limit = 24 } = {}) =>
-    j(`/api/images?page=${page}&limit=${limit}`);
+export function useImageAPI(robotId) {
+  const list = async (limit = 9) => {
+    const res = await fetch(`${API}/api/images?robotId=${encodeURIComponent(robotId)}&limit=${limit}`);
+    const json = await res.json().catch(() => ({}));
+    const arr = normalize(json);
+    // homogeneizar campos para SnapshotCard/Gallery
+    return arr.map(it => ({
+      ...it,
+      url: it.url || it.path || it.imageUrl || it.data || "",
+    }));
+  };
 
-  const analyze = async (url) =>
-    j(`/api/images/analyze`, { method: "POST", body: { url } });
+  const listAll = async () => {
+    const res = await fetch(`${API}/api/images?robotId=${encodeURIComponent(robotId)}`);
+    const json = await res.json().catch(() => ({}));
+    const arr = normalize(json);
+    return arr.map(it => ({
+      ...it,
+      url: it.url || it.path || it.imageUrl || it.data || "",
+    }));
+  };
 
-  const scanQrUrl = async (url) =>
-    j(`/api/images/scan-qr/url`, { method: "POST", body: { url } });
-
-  const byId = async (id) => j(`/api/images/${id}`);
-
-  return { list, analyze, scanQrUrl, byId };
+  return { list, listAll };
 }
