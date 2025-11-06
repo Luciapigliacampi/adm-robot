@@ -36,10 +36,7 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family: 'Inter', s
 .navbtn:hover{ color:var(--text); background:rgba(139, 92, 246, 0.1); border-color:rgba(139, 92, 246, 0.3) }
 .navbtn.active { color:var(--text); background:var(--accent); border-color:var(--accent); font-weight:600; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3); }
 .navbtn.active:hover { background:var(--accent); }
-.navbtn.disabled { 
-  opacity: 0.5; 
-  /* NOTA: Se ha eliminado 'pointer-events: none;' para permitir los clics. */
-}
+.navbtn.disabled { opacity: 0.5; pointer-events: none; }
 
 /* Main Content */
 .main{ display:flex; flex-direction:column; gap:20px; padding:20px; overflow-y:auto; }
@@ -110,27 +107,9 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family: 'Inter', s
 
 /* Snapshot Card (Ahora Historial de Imágenes) */
 .full-width-images {
-    overflow: auto;
+    /* Esta tarjeta ocupa el ancho completo */
     padding-bottom: 24px;
 }
-::-webkit-scrollbar {
-  width: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: #1e1e1e;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #4f46e5, #6366f1);
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #4338ca, #4f46e5);
-}
-
 .image-grid {
     display: grid;
     /* Cuadrícula responsiva: 3 columnas en escritorio, 2 en tablet, 1 en móvil */
@@ -147,7 +126,6 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family: 'Inter', s
     flex-direction: column;
 }
 .image-box {
-  aspect-ratio: 1/1;
     width: 100%;
     height: 180px; /* Altura fija para la imagen */
     background: var(--bg);
@@ -385,10 +363,17 @@ main.selector-page { display:block !important; }
 .selector-page .status-badge.warn { color:var(--warn); background:rgba(255,183,0,.15);  border-color:rgba(255,183,0,.3); }
 .selector-page .status-badge.err  { color:var(--err);  background:rgba(255,84,104,.15); border-color:rgba(255,84,104,.3); }
 
-.sidebar .logo .bottype-logo {
-  max-width: 100%; /* Para que no se desborde del contenedor */
-  height: auto;    /* Mantiene la proporción */
-  /* Puedes ajustar el tamaño o márgenes aquí si es necesario */
-  width: 180px; /* Ejemplo: ajusta el ancho a tu preferencia */
-  padding-left: 5 px; /* Ejemplo: añadir un poco de padding a la izquierda */
+/* Tamaño consistente del logo en el header */
+.brand img,
+.header-logo img,
+.logo img {
+  height: 40px;
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+}
+
+/* Evitar que imágenes dentro de cards rompan layout */
+.card img {
+  max-width: 100%;
 }

@@ -1,6 +1,9 @@
+// src/hooks/useAdminSSE.js
 import { useEffect, useRef, useState, useCallback } from "react";
 
-const API = import.meta.env.VITE_API_BASE;
+const API = import.meta.env.VITE_API_BASE || "";
+
+// Feature flags (.env)
 const ENABLE_SENSORS = import.meta.env.VITE_ENABLE_SENSORS === "1";
 const SENSORS_PATH   = import.meta.env.VITE_SENSORS_PATH || "/api/sensors";
 const FAKE_TLM       = import.meta.env.VITE_FAKE_TELEMETRY === "1";
@@ -8,24 +11,27 @@ const FAKE_TLM       = import.meta.env.VITE_FAKE_TELEMETRY === "1";
 export default function useAdminSSE(robotId = "R1") {
   const isDemo = typeof robotId === "string" && robotId.startsWith("demo-");
 
-  const [connected, setConnected]   = useState(false);
-  const [latencyMs, setLatencyMs]   = useState(null);
-  const [telemetry, setTelemetry]   = useState(null);
-  const [snapshot, setSnapshot]     = useState(null);
-  const [series, setSeries]         = useState([]);
-  const [logs, setLogs]             = useState([]);
+  const [connected, setConnected] = useState(false);
+  const [latencyMs, setLatencyMs] = useState(null);
+  const [telemetry, setTelemetry] = useState(null);
+  const [snapshot, setSnapshot]   = useState(null);
+  const [series, setSeries]       = useState([]);
+  const [logs, setLogs]           = useState([]);
 
-  const statusES = useRef(null);
-  const mainES   = useRef(null);
-  const tickId   = useRef(null);
+  const statusES = useRef(null); // stream de estado/telemetría/snapshot
+  const mainES   = useRef(null); // stream de eventos varios
+  const tickId   = useRef(null); // intervalo para fake distance
 
+  // helpers
   const push = useCallback((setter, item, max = 200) => {
     setter((prev) => [item, ...prev].slice(0, max));
   }, []);
-
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const safe = (s) => { try { return JSON.parse(s); } catch { return null; } };
 
-  // DEMO
+  // ------------------------------------------------------------
+  // DEMO: genera telemetría falsa sin abrir SSE
+  // ------------------------------------------------------------
   useEffect(() => {
     if (!isDemo) return;
 
@@ -53,6 +59,7 @@ export default function useAdminSSE(robotId = "R1") {
     return () => clearInterval(timer);
   }, [isDemo, robotId]);
 
+  // Opcional: ruido leve para hacer “vivo” el gráfico en entorno real
   const applyFakeTelemetry = useCallback((base) => {
     if (!FAKE_TLM) return base;
     const prevB = Number.isFinite(base?.battery) ? base.battery : 72;
@@ -70,8 +77,7 @@ export default function useAdminSSE(robotId = "R1") {
     if (!FAKE_TLM) return;
     setTelemetry((t) => {
       if (!t) return t;
-      const next = { ...t, dist: Number(t.dist || 0) + Number(t.v || 0) * 2 };
-      return next;
+      return { ...t, dist: Number(t.dist || 0) + Number(t.v || 0) * 2 };
     });
   }, []);
 
@@ -85,8 +91,8 @@ export default function useAdminSSE(robotId = "R1") {
       const last = Array.isArray(data?.readings) ? data.readings[0] : data?.last || null;
       if (!last) return baseTlm;
       const t = { ...baseTlm };
-      if (last.speed    != null && t.v    == null) t.v    = last.speed;
-      if (last.distance != null && t.dist == null) t.dist = last.distance;
+      if (last.speed    != null && t.v       == null) t.v       = last.speed;
+      if (last.distance != null && t.dist    == null) t.dist    = last.distance;
       if (last.battery  != null && t.battery == null) t.battery = last.battery;
       return t;
     } catch {
@@ -94,92 +100,112 @@ export default function useAdminSSE(robotId = "R1") {
     }
   }, [robotId]);
 
-  // REAL
+  // ------------------------------------------------------------
+  // REAL: abre SSEs y procesa eventos
+  // ------------------------------------------------------------
   useEffect(() => {
     if (isDemo) return;
 
+    // --- STATUS / TELEMETRY / SNAPSHOT ---
     statusES.current = new EventSource(`${API}/api/status/stream`);
     let lastTick = Date.now();
 
     statusES.current.onmessage = async (e) => {
       try {
         const data = JSON.parse(e.data) || {};
+
+        // map básico con alias comunes
         let tlm = {
-          status:  data.status,
-          mode:    data.mode,
-          battery: data.battery ?? data.batt ?? null,
-          v:       data.speed   ?? data.v    ?? null,
-          dist:    data.distance?? data.dist ?? null,
+          status:   data.status,
+          mode:     data.mode,
+          battery:  data.battery  ?? data.batt ?? null,
+          v:        data.speed    ?? data.v    ?? null,
+          dist:     data.distance ?? data.dist ?? null,
           timestamp: data.timestamp ?? Date.now(),
         };
 
-        if (data?.snapshotUrl || data?.image?.url) {
+        // fallbacks para snapshot (toma cualquiera que venga)
+        const snapUrl =
+          data.snapshotUrl ||
+          data?.image?.url ||
+          data?.imageUrl ||
+          data?.url ||
+          null;
+
+        if (snapUrl) {
           setSnapshot({
-            url: data.snapshotUrl ?? data.image.url,
-            description: data?.image?.description ?? "",
+            url: snapUrl,
+            description: data?.image?.description || data?.description || "",
             ts: Date.now(),
           });
         }
 
+        // enriquecer con sensores (opcional) + telemetría fake (opcional)
         tlm = await enrichWithSensors(tlm);
         tlm = applyFakeTelemetry({ ...(telemetry || {}), ...tlm });
 
+        // actualizar telemetría y serie
         setTelemetry((prev) => {
           const next = { ...(prev || {}), ...tlm };
           if (typeof next.dist === "number") {
-            setSeries((s) => [...(Array.isArray(s) ? s.slice(-49) : []), { x: Date.now(), y: next.dist }]);
+            setSeries((s) => [
+              ...(Array.isArray(s) ? s.slice(-49) : []),
+              { x: Date.now(), y: next.dist },
+            ]);
           }
           return next;
         });
 
+        // latencia aproximada (suponiendo tick ~2s)
         const now = Date.now();
         setLatencyMs(Math.max(0, now - lastTick - 2000));
         lastTick = now;
         setConnected(true);
-      } catch {}
+      } catch {
+        // noop
+      }
     };
 
     statusES.current.onerror = () => setConnected(false);
 
-    // STREAM principal (eventos)
+    // --- MAIN EVENTS ---
     mainES.current = new EventSource(`${API}/api/stream`);
-    const on = (n, h) => mainES.current.addEventListener(n, h);
-    const off = (n, h) => mainES.current.removeEventListener(n, h);
 
-    const safe = (s) => { try { return JSON.parse(s); } catch { return null; } };
+    const h_robot_connected = (e) => push(setLogs, { type: "robot_connected", data: safe(e.data), ts: Date.now() });
+    const h_robot_disconnected = (e) => push(setLogs, { type: "robot_disconnected", data: safe(e.data), ts: Date.now() });
+    const h_ack_received = (e) => push(setLogs, { type: "ack_received", data: safe(e.data), ts: Date.now() });
+    const h_robot_error = (e) => push(setLogs, { type: "robot_error", data: safe(e.data), ts: Date.now() });
 
-    const onEvent = (type) => (e) => {
-      push(setLogs, { type, data: safe(e.data), ts: Date.now() });
-    };
-
-    const onNewImage = (e) => {
+    const h_new_image = (e) => {
       const d = safe(e.data);
       push(setLogs, { type: "new_image", data: d, ts: Date.now() });
-      if (d?.url)
-        setSnapshot({ url: d.url, description: d.description || "", ts: Date.now() });
+      if (d?.url || d?.imageUrl || d?.path || d?.src) {
+        const url = d.url || d.imageUrl || d.path || d.src;
+        setSnapshot({ url, description: d?.description || "", ts: Date.now() });
+      }
     };
 
-    on("robot_connected", onEvent("robot_connected"));
-    on("robot_disconnected", onEvent("robot_disconnected"));
-    on("ack_received", onEvent("ack_received"));
-    on("robot_error", onEvent("robot_error"));
-    on("new_image", onNewImage);
+    mainES.current.addEventListener("robot_connected", h_robot_connected);
+    mainES.current.addEventListener("robot_disconnected", h_robot_disconnected);
+    mainES.current.addEventListener("ack_received", h_ack_received);
+    mainES.current.addEventListener("robot_error", h_robot_error);
+    mainES.current.addEventListener("new_image", h_new_image);
 
+    // fake distance tick (si aplica)
     tickId.current = setInterval(bumpFakeDistance, 2000);
 
+    // cleanup
     return () => {
       clearInterval(tickId.current);
       try { statusES.current?.close(); } catch {}
       try { mainES.current?.close(); } catch {}
-      if (mainES.current) {
-        off("robot_connected", onEvent("robot_connected"));
-        off("robot_disconnected", onEvent("robot_disconnected"));
-        off("ack_received", onEvent("ack_received"));
-        off("robot_error", onEvent("robot_error"));
-        off("new_image", onNewImage);
-      }
+      mainES.current?.removeEventListener("robot_connected", h_robot_connected);
+      mainES.current?.removeEventListener("robot_disconnected", h_robot_disconnected);
+      mainES.current?.removeEventListener("ack_received", h_ack_received);
+      mainES.current?.removeEventListener("robot_error", h_robot_error);
+      mainES.current?.removeEventListener("new_image", h_new_image);
     };
-  }, [robotId, isDemo, enrichWithSensors, applyFakeTelemetry, bumpFakeDistance]);
+  }, [robotId, isDemo, enrichWithSensors, applyFakeTelemetry, bumpFakeDistance]); // deps correctas
 
   return { connected, latencyMs, telemetry, snapshot, series, logs };
 }
