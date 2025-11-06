@@ -9,7 +9,7 @@ export default function AdminDashboard() {
   const { robotId } = useParams();
   const rid = robotId || "R1";
 
-  // SSE: estado, telemetría, snapshot e historial de eventos
+  // SSE (estado + telemetría + snapshot + logs)
   const { connected, latencyMs, telemetry, snapshot, logs } = useAdminSSE(rid);
 
   // KPIs
@@ -17,11 +17,11 @@ export default function AdminDashboard() {
   const speed   = telemetry?.v ?? null;
   const dist    = telemetry?.dist ?? null;
 
-  // Miniaturas: carga inicial + push en vivo cuando llega "new_image" (o snapshotUrl)
+  // Imágenes recientes (3)
   const api = useImageAPI(rid);
   const [thumbs, setThumbs] = useState([]);
 
-  // --- Carga inicial de 3 más recientes desde la API ---
+  // --- Carga inicial desde API (3 más recientes) ---
   useEffect(() => {
     let cancel = false;
     (async () => {
@@ -41,7 +41,7 @@ export default function AdminDashboard() {
             ts: new Date(i.timestamp || i.createdAt || i.ts || Date.now()).getTime(),
           }));
         if (!cancel) setThumbs(ordered);
-      } catch (e) {
+      } catch {
         if (!cancel) setThumbs([]);
       }
     })();
@@ -49,7 +49,7 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rid]);
 
-  // --- En vivo: si llega un snapshot con url, lo metemos al tope y mantenemos 3 ---
+  // --- En vivo: si llega snapshot.url por SSE, lo inserto arriba y mantengo 3 ---
   useEffect(() => {
     if (!snapshot?.url) return;
     setThumbs((prev) => {
@@ -66,7 +66,7 @@ export default function AdminDashboard() {
     });
   }, [snapshot?.url, snapshot?.description]);
 
-  // Telemetría para mostrar en “Eventos recientes”
+  // Telemetría compacta para mostrar en “Eventos recientes”
   const telemView = useMemo(
     () => ({
       mode: telemetry?.mode ?? "—",
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="main" style={{ display: "grid", gap: 16 }}>
-      {/* Header */}
+      {/* HEADER */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
         <h2 style={{ margin: 0 }}>Panel de administración</h2>
         {isAdmin() && (
@@ -103,7 +103,7 @@ export default function AdminDashboard() {
         <KpiCard title="Distancia" value={dist != null ? dist : "—"} unit="m" />
       </div>
 
-      {/* Imágenes recientes */}
+      {/* IMÁGENES RECIENTES */}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div className="muted">Imágenes recientes</div>
@@ -135,11 +135,11 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Eventos recientes (incluye telemetría arriba) */}
+      {/* EVENTOS RECIENTES (incluye bloque de telemetría) */}
       <div className="card">
         <div className="card-title">Eventos recientes</div>
 
-        {/* Bloque compacto con datos de telemetría actual */}
+        {/* Bloque de telemetría arriba */}
         <div
           className="muted small"
           style={{
@@ -160,9 +160,7 @@ export default function AdminDashboard() {
 
         <div className="table">
           <div className="tr head">
-            <div>Tipo</div>
-            <div>Detalle</div>
-            <div>Hora</div>
+            <div>Tipo</div><div>Detalle</div><div>Hora</div>
           </div>
           {Array.isArray(logs) && logs.length > 0 ? (
             logs.slice(0, 20).map((l, i) => (
@@ -177,9 +175,7 @@ export default function AdminDashboard() {
               </div>
             ))
           ) : (
-            <div className="muted" style={{ padding: 8 }}>
-              Sin eventos
-            </div>
+            <div className="muted" style={{ padding: 8 }}>Sin eventos</div>
           )}
         </div>
       </div>
