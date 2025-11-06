@@ -36,7 +36,8 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family: 'Inter', s
 .navbtn:hover{ color:var(--text); background:rgba(139, 92, 246, 0.1); border-color:rgba(139, 92, 246, 0.3) }
 .navbtn.active { color:var(--text); background:var(--accent); border-color:var(--accent); font-weight:600; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3); }
 .navbtn.active:hover { background:var(--accent); }
-.navbtn.disabled { opacity: 0.5; pointer-events: none; }
+.navbtn.disabled { 
+  opacity: 0.5; }
 
 /* Main Content */
 .main{ display:flex; flex-direction:column; gap:20px; padding:20px; overflow-y:auto; }
@@ -362,3 +363,11 @@ main.selector-page { display:block !important; }
 .selector-page .status-badge.ok   { color:var(--ok);   background:rgba(33,192,122,.15); border-color:rgba(33,192,122,.3); }
 .selector-page .status-badge.warn { color:var(--warn); background:rgba(255,183,0,.15);  border-color:rgba(255,183,0,.3); }
 .selector-page .status-badge.err  { color:var(--err);  background:rgba(255,84,104,.15); border-color:rgba(255,84,104,.3); }
+
+.sidebar .logo .bottype-logo {
+  max-width: 100%; /* Para que no se desborde del contenedor */
+  height: auto;    /* Mantiene la proporción */
+  /* Puedes ajustar el tamaño o márgenes aquí si es necesario */
+  width: 180px; /* Ejemplo: ajusta el ancho a tu preferencia */
+  padding-left: 5 px; /* Ejemplo: añadir un poco de padding a la izquierda */
+}
