@@ -37,7 +37,9 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family: 'Inter', s
 .navbtn.active { color:var(--text); background:var(--accent); border-color:var(--accent); font-weight:600; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3); }
 .navbtn.active:hover { background:var(--accent); }
 .navbtn.disabled { 
-  opacity: 0.5; }
+  opacity: 0.5; 
+  /* NOTA: Se ha eliminado 'pointer-events: none;' para permitir los clics. */
+}
 
 /* Main Content */
 .main{ display:flex; flex-direction:column; gap:20px; padding:20px; overflow-y:auto; }
