@@ -70,7 +70,7 @@ export default function AdminDashboard() {
         <h2 style={{ margin: 0 }}>Panel de administración</h2>
         {isAdmin() && (
           <Link
-            to={`/control/${robotId || "R1"}`}
+            to={`http://localhost:5173`}
             className="btn primary"
             style={{ marginLeft: "auto" }}
           >
