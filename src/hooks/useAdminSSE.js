@@ -29,6 +29,9 @@ export default function useAdminSSE(robotId = "R1") {
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const safe = (s) => { try { return JSON.parse(s); } catch { return null; } };
 
+   const round2 = (n) => (Number.isFinite(n) ? Number(n.toFixed(2)) : n);
+  const keepPrev = (prev, next) => (Number.isFinite(next) ? next : prev);
+
   // ------------------------------------------------------------
   // DEMO: genera telemetría falsa sin abrir SSE
   // ------------------------------------------------------------
@@ -144,10 +147,25 @@ export default function useAdminSSE(robotId = "R1") {
         tlm = await enrichWithSensors(tlm);
         tlm = applyFakeTelemetry({ ...(telemetry || {}), ...tlm });
 
-        // actualizar telemetría y serie
+        // ---- Normalizar números a 2 decimales (si existen)
+        tlm = {
+          ...tlm,
+          battery: round2(tlm.battery),
+          v:       round2(tlm.v),
+          dist:    round2(tlm.dist),
+        };
+
+        // actualizar telemetría y serie, preservando último válido si falta dato
         setTelemetry((prev) => {
-          const next = { ...(prev || {}), ...tlm };
-          if (typeof next.dist === "number") {
+          const nextRaw = { ...(prev || {}), ...tlm };
+          const next = {
+            ...nextRaw,
+            battery: keepPrev(prev?.battery, nextRaw.battery),
+            v:       keepPrev(prev?.v,       nextRaw.v),
+            dist:    keepPrev(prev?.dist,    nextRaw.dist),
+          };
+
+          if (Number.isFinite(next.dist)) {
             setSeries((s) => [
               ...(Array.isArray(s) ? s.slice(-49) : []),
               { x: Date.now(), y: next.dist },
