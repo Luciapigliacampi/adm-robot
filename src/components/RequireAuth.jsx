@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 
+const VITE_API_BASE = import.meta.env.VITE_API_BASE
+
 // Decodifica JWT
 function decodeJWT(token) {
   try {
@@ -39,7 +41,7 @@ export default function RequireAuth({ children }) {
       if (!auth0Id) return;
 
       try {
-        const res = await fetch("http://localhost:3000/api/auth/refresh-token", {
+        const res = await fetch(`${VITE_API_BASE}/api/auth/refresh-token`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ auth0Id }),
@@ -88,7 +90,7 @@ export default function RequireAuth({ children }) {
       }
 
       try {
-        const res = await fetch("http://localhost:3000/api/auth/validate-token", {
+        const res = await fetch(`${VITE_API_BASE}/api/auth/validate-token`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token }),
