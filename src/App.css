@@ -107,9 +107,27 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family: 'Inter', s
 
 /* Snapshot Card (Ahora Historial de Imágenes) */
 .full-width-images {
-    /* Esta tarjeta ocupa el ancho completo */
+    overflow: auto;
     padding-bottom: 24px;
 }
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4f46e5, #6366f1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #4338ca, #4f46e5);
+}
+
 .image-grid {
     display: grid;
     /* Cuadrícula responsiva: 3 columnas en escritorio, 2 en tablet, 1 en móvil */
@@ -126,6 +144,7 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family: 'Inter', s
     flex-direction: column;
 }
 .image-box {
+  aspect-ratio: 1/1;
     width: 100%;
     height: 180px; /* Altura fija para la imagen */
     background: var(--bg);

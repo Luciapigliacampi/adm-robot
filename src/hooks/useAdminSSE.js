@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { toast } from "react-toastify";
+
 
 const API = import.meta.env.VITE_API_BASE;
 
@@ -156,22 +158,29 @@ return next;
     statusES.current.onerror = () => setConnected(false);
 
     // STREAM principal (eventos)
-    mainES.current = new EventSource(`${API}/api/stream`);
-    const on = (n, h) => mainES.current.addEventListener(n, h);
-    const off = (n, h) => mainES.current.removeEventListener(n, h);
+   mainES.current = new EventSource(`${API}/api/stream`);
+const on = (n, h) => mainES.current.addEventListener(n, h);
+const off = (n, h) => mainES.current.removeEventListener(n, h);
 
-    const onEvent = (type) => (e) => push(setLogs, { type, data: safe(e.data), ts: Date.now() });
-    const onNewImage = (e) => {
-      const d = safe(e.data);
-      push(setLogs, { type: "new_image", data: d, ts: Date.now() });
-      if (d?.url) setSnapshot({ url: d.url, description: d.description || "", ts: Date.now() });
-    };
+const onEvent = (type) => (e) => {
+  console.log(`📡 Evento SSE recibido: ${type}`, e.data);
+  push(setLogs, { type, data: safe(e.data), ts: Date.now() });
+};
 
-    on("robot_connected", onEvent("robot_connected"));
-    on("robot_disconnected", onEvent("robot_disconnected"));
-    on("ack_received", onEvent("ack_received"));
-    on("robot_error", onEvent("robot_error"));
-    on("new_image", onNewImage);
+const onNewImage = (e) => {
+  console.log("🖼️ Nuevo evento de imagen recibido:", e.data);
+  const d = safe(e.data);
+  push(setLogs, { type: "new_image", data: d, ts: Date.now() });
+  if (d?.url)
+    setSnapshot({ url: d.url, description: d.description || "", ts: Date.now() });
+};
+
+// Escuchadores
+on("robot_connected", onEvent("robot_connected"));
+on("robot_disconnected", onEvent("robot_disconnected"));
+on("ack_received", onEvent("ack_received"));
+on("robot_error", onEvent("robot_error"));
+on("new_image", onNewImage);
 
     tickId.current = setInterval(bumpFakeDistance, 2000);
 
