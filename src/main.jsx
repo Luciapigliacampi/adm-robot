@@ -4,8 +4,11 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { Auth0Provider } from '@auth0/auth0-react';
 import AppRouter from './AppRouter.jsx';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 import './index.css';
+import SSEListener from './components/SSEListener.jsx';
 
 //mismo dominio y tenant que el front del control 
 const domain = import.meta.env.VITE_AUTH0_DOMAIN;
@@ -26,6 +29,9 @@ createRoot(document.getElementById('root')).render(
     >
       <BrowserRouter>
         <AppRouter />
+          <SSEListener />
+        {/* Contenedor global de toasts */}
+        <ToastContainer position="top-right" autoClose={3000} />
       </BrowserRouter>
     </Auth0Provider>
   </StrictMode>

@@ -7,37 +7,17 @@ import KpiCard from "../components/KpiCard";
 import SnapshotCard from "../components/SnapshotCard";
 import { useImageAPI } from "../hooks/useImageAPI";
 import {isAdmin} from "../services/roles";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-// ---- Helpers básicos para notificaciones nativas ----
-const canNotify = () => typeof window !== "undefined" && "Notification" in window;
 
-async function ensurePermission() {
-  if (!canNotify()) return { ok: false, reason: "unsupported" };
-  if (Notification.permission === "granted") return { ok: true };
-  if (Notification.permission === "denied") return { ok: false, reason: "denied" };
-  const res = await Notification.requestPermission();
-  return { ok: res === "granted", reason: res };
-}
-
-function showNative({ title, body }) {
-  if (!canNotify() || Notification.permission !== "granted") return false;
-  try {
-    new Notification(title, {
-      body,
-      icon: "/icons/icon-192.png",   // si no existe, quitá estas dos líneas
-      badge: "/icons/icon-192.png",
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export default function AdminDashboard() {
   const { robotId } = useParams();
+  console.log("robotId en AdminDashboard:", robotId);
   const { connected, latencyMs, telemetry, snapshot, series, logs } = useAdminSSE(robotId || "R1");
 
-  const api = useImageAPI();
+  const api = useImageAPI(robotId);
   const [thumbs, setThumbs] = useState([]);
 
   const battery = telemetry?.battery ?? null;
@@ -46,22 +26,28 @@ export default function AdminDashboard() {
   const mode    = telemetry?.mode ?? "—";
   const state   = telemetry?.status ?? "—";
 
-  useEffect(() => { ensurePermission(); }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { images } = await api.list({ page: 1, limit: 24 });
-        const all = Array.isArray(images) ? images : [];
-        const filtered = all.filter(i => !i.robotId || i.robotId === (robotId || "R1"));
-        setThumbs((filtered.length ? filtered : all).slice(0, 3));
-      } catch {
+ useEffect(() => {
+  (async () => {
+    try {
+      const api = useImageAPI(robotId || "R1");
+      const images = await api.listAll();
+      if (Array.isArray(images) && images.length > 0) {
+        // ordenar por timestamp descendente (más nuevas primero)
+        const last3 = [...images]
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          .slice(0, 3);
+        setThumbs(last3);
+      } else {
         setThumbs([]);
       }
-    })();
-  }, [robotId]);
+    } catch (err) {
+      console.error("Error al traer imágenes:", err);
+      setThumbs([]);
+    }
+  })();
+}, [robotId]);
 
-  const onTestNotify = async () => { /* ... igual ... */ };
 
   return (
     <div className="main" style={{ display: "grid", gap: 16 }}>
@@ -80,8 +66,12 @@ export default function AdminDashboard() {
       </div>
 
       {/* Botón para probar notificaciones */}
-      <button className="btn" onClick={onTestNotify}>Probar notificación</button>
-
+ <button
+        className="btn"
+        onClick={() => toast.success("✅ Notificación funcionando!")}
+      >
+        Probar notificación
+      </button>
       {/* SSE state */}
       <div className="card">
         <b>SSE:</b> {connected ? "Conectado" : "Desconectado"} · Latencia aprox: {latencyMs ?? "—"} ms
@@ -101,14 +91,35 @@ export default function AdminDashboard() {
           <div className="muted">Imágenes recientes</div>
           <Link className="link" to={`/dashboard/${robotId}/images`}>Ver más</Link>
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8 }}>
+        <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 300px)", // 🔹 cada imagen 120x120
+    justifyContent: "center",
+    gap: 10,
+    justifyContent: "space-between",
+  }}
+>
           {thumbs.map((i,idx) => (
-            <img
-              key={i._id || idx}
-              src={i.url || i.path || i.imageUrl}
-              alt={i.label || ""}
-              style={{ width:'100%', height:100, objectFit:'cover', borderRadius:8 }}
-            />
+            <div
+  key={i._id || idx}
+  style={{
+    width: "100%",
+    aspectRatio: "1 / 1",   // 🔥 mantiene cuadrado
+    overflow: "hidden",
+    borderRadius: 8,
+  }}
+>
+  <img
+    src={i.url || i.path || i.imageUrl}
+    alt={i.label || ""}
+    style={{
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+    }}
+  />
+</div>
           ))}
           {thumbs.length === 0 && <div className="muted">Sin imágenes</div>}
         </div>
