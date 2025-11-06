@@ -100,7 +100,7 @@ export default function AdminDashboard() {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
         <h2 style={{ margin: 0 }}>Panel de administración</h2>
         {isAdmin() && (
-          <Link to={`http://localhost:5173`} className="btn primary" style={{ marginLeft: "auto" }}>
+          <Link to={`https://control-robot-ten.vercel.app/`} className="btn primary" style={{ marginLeft: "auto" }}>
             Ir al Control Remoto
           </Link>
         )}
