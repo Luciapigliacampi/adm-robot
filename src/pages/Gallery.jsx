@@ -1,23 +1,64 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { XCircle } from "lucide-react";
 import { useImageAPI } from "../hooks/useImageAPI";
+import { isSimulatedRobot } from "../services/robots";
+import { getRobotAlias } from "../config/robotAliases";
+
+// Array de semillas de imágenes (no URLs finales)
+const DUMMY_SEEDS = ["a", "b", "c", "d", "e", "f", "g"];
 
 export default function Gallery() {
   const { robotId } = useParams();
   const api = useImageAPI(robotId);
+  const robotAlias = getRobotAlias(robotId) || robotId;
+
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState(null);
 
-  // 🔍 Filtros
+  // Filtros
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState("");
 
+  // 🛑 Placeholder si no hay robot seleccionado
+  if (!robotId) {
+    return (
+      <main className="main">
+        <div className="placeholder-full">
+          <XCircle size={48} color="var(--warn)" />
+          <h1>Selecciona un Robot</h1>
+          <p>Debes seleccionar un robot del Dashboard para ver su historial de imágenes.</p>
+        </div>
+      </main>
+    );
+  }
+
+  // 🌐 Carga de datos (real o simulado)
   useEffect(() => {
+    if (!robotId) return;
+
+    let cancelled = false;
+    const isSimulated = isSimulatedRobot(robotId);
+
     (async () => {
       try {
         setLoading(true);
-        const items = await api.listAll();
+        let items = [];
+
+        if (isSimulated) {
+          // Usa el robotId en el seed para una lista estable por robot
+          const seedSuffix = encodeURIComponent(String(robotId));
+          items = DUMMY_SEEDS.map((seed, index) => ({
+            _id: `dummy-${robotId}-${index}`,
+            url: `https://picsum.photos/seed/${seed}${seedSuffix}/800/600`,
+            label: `Simulada: ${robotAlias}`,
+            description: `Imagen simulada de control de calidad #${index + 1}`,
+            timestamp: new Date(Date.now() - index * 3600000).toISOString(),
+          }));
+        } else {
+          items = await api.listAll();
+        }
 
         const ordered = [...items].sort(
           (a, b) =>
@@ -25,37 +66,44 @@ export default function Gallery() {
             new Date(a.timestamp || a.createdAt || a.ts || 0)
         );
 
-        setImages(ordered);
+        if (!cancelled) setImages(ordered);
       } catch (err) {
         console.error("Error al cargar imágenes:", err);
-        setImages([]);
+        if (!cancelled) setImages([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [robotId]);
 
+    return () => {
+      cancelled = true;
+    };
+  }, [robotId, api, robotAlias]);
+
+  // Selecciona la primera imagen disponible al cargar / actualizar
   useEffect(() => {
     if (!sel && images.length > 0) setSel(images[0]);
+    if (sel && images.length > 0 && !images.some((i) => (i._id || i.id) === (sel._id || sel.id))) {
+      setSel(images[0]);
+    }
   }, [images, sel]);
 
-  // 🧠 Aplica filtros
   const filteredImages = images.filter((i) => {
     const label = (i.label || "").toLowerCase();
     const desc = (i.description || "").toLowerCase();
     const matchesSearch =
-      label.includes(search.toLowerCase()) ||
-      desc.includes(search.toLowerCase());
+      label.includes(search.toLowerCase()) || desc.includes(search.toLowerCase());
     const matchesDate = dateFilter
-      ? new Date(i.timestamp || i.createdAt || i.ts || 0)
-          .toISOString()
-          .slice(0, 10) === dateFilter
+      ? new Date(i.timestamp || i.createdAt || i.ts || 0).toISOString().slice(0, 10) === dateFilter
       : true;
     return matchesSearch && matchesDate;
   });
 
   return (
     <main className="main full-width-images">
+      <div className="header">
+        <h1 className="robot-title">Galería de Imágenes: {robotAlias}</h1>
+      </div>
       <div
         className="card"
         style={{
@@ -79,7 +127,7 @@ export default function Gallery() {
         >
           <div className="card-title">Historial de Imágenes</div>
 
-          {/* 🔍 Filtros */}
+          {/* Filtros */}
           <div
             style={{
               display: "flex",
@@ -97,9 +145,11 @@ export default function Gallery() {
               style={{
                 width: "100%",
                 padding: "6px 10px",
-                border: "1px solid #ccc",
+                border: "1px solid var(--border)",
                 borderRadius: 6,
                 fontSize: 14,
+                background: "var(--panel)",
+                color: "var(--text)",
               }}
             />
             <input
@@ -109,9 +159,11 @@ export default function Gallery() {
               style={{
                 width: "100%",
                 padding: "6px 10px",
-                border: "1px solid #ccc",
+                border: "1px solid var(--border)",
                 borderRadius: 6,
                 fontSize: 14,
+                background: "var(--panel)",
+                color: "var(--text)",
               }}
             />
           </div>
@@ -129,74 +181,71 @@ export default function Gallery() {
                 alignItems: "center",
               }}
             >
-              {filteredImages.map((i, idx) => (
-                <div
-                  className="image-item"
-                  key={i._id || idx}
-                  onClick={() => setSel(i)}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    width: 280,
-                    cursor: "pointer",
-                    padding: 8,
-                    borderRadius: 6,
-                    background:
-                      sel && sel._id === i._id
-                        ? "rgba(0,0,0,0.08)"
-                        : "transparent",
-                    transition: "background 0.2s",
-                  }}
-                >
+              {filteredImages.map((i, idx) => {
+                const key = i._id || i.id || idx;
+                const ts = new Date(i.timestamp || i.createdAt || i.ts || Date.now()).toLocaleString();
+                return (
                   <div
+                    className="image-item"
+                    key={key}
+                    onClick={() => setSel(i)}
                     style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
                       width: 280,
-                      height: 160,
-                      overflow: "hidden",
+                      cursor: "pointer",
+                      padding: 8,
                       borderRadius: 6,
+                      background:
+                        sel && (sel._id || sel.id) === (i._id || i.id)
+                          ? "rgba(139, 92, 246, 0.15)"
+                          : "transparent",
+                      transition: "background 0.2s",
                     }}
                   >
-                    <img
-                      src={i.url}
-                      alt={i.label || ""}
+                    <div
                       style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
+                        width: 280,
+                        height: 160,
+                        overflow: "hidden",
+                        borderRadius: 6,
                       }}
-                    />
-                  </div>
-                  <div style={{ width: "100%", marginTop: 8 }}>
-                    <div
-                      className="description"
-                      style={{ fontSize: 14, marginBottom: 4 }}
                     >
-                      {i.label || "Captura"}
+                      <img
+                        src={i.url}
+                        alt={i.label || ""}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                        loading="lazy"
+                      />
                     </div>
-                    <div
-                      className="muted small"
-                      style={{ fontSize: 12, color: "#666" }}
-                    >
-                      {new Date(
-                        i.timestamp || i.createdAt || i.ts || Date.now()
-                      ).toLocaleString()}
+                    <div style={{ width: "100%", marginTop: 8 }}>
+                      <div className="description" style={{ fontSize: 14, marginBottom: 4 }}>
+                        {i.label || "Captura"}
+                      </div>
+                      <div className="muted small" style={{ fontSize: 12, color: "var(--muted)" }}>
+                        {ts}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Panel derecho */}
+        {/* Panel derecho: Imagen seleccionada */}
         <div
           style={{
             flex: 1,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            justifyContent: sel ? "center" : "center",
+            justifyContent: "center",
             textAlign: "center",
             padding: 32,
             marginLeft: "120px",
@@ -218,28 +267,18 @@ export default function Gallery() {
                 }}
               />
               <div>
-                <h2 style={{ marginBottom: 8, fontSize: 22, fontWeight: "600" }}>
+                <h2 style={{ marginBottom: 8, fontSize: 22, fontWeight: 600 }}>
                   {sel.description || "Captura sin descripción"}
                 </h2>
-                <p
-                  style={{
-                    fontSize: 16,
-                    color: "#555",
-                    margin: 0,
-                  }}
-                >
-                  {new Date(
-                    sel.timestamp || sel.createdAt || sel.ts || Date.now()
-                  ).toLocaleString()}
+                <p style={{ fontSize: 16, color: "var(--muted)", margin: 0 }}>
+                  {new Date(sel.timestamp || sel.createdAt || sel.ts || Date.now()).toLocaleString()}
                 </p>
               </div>
             </>
           ) : loading ? (
             <div className="placeholder-full loading">Cargando…</div>
           ) : (
-            <div className="placeholder-full">
-              Seleccione una imagen del historial
-            </div>
+            <div className="placeholder-full">Seleccione una imagen del historial</div>
           )}
         </div>
       </div>
