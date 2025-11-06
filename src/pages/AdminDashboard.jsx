@@ -1,3 +1,4 @@
+// src/pages/AdminDashboard.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import useAdminSSE from "../hooks/useAdminSSE";
@@ -66,17 +67,32 @@ export default function AdminDashboard() {
     });
   }, [snapshot?.url, snapshot?.description]);
 
-  // Telemetría compacta para mostrar en “Eventos recientes”
-  const telemView = useMemo(
+  // Datos compactos (solo para encabezado de eventos)
+  const telemHeader = useMemo(
     () => ({
       mode: telemetry?.mode ?? "—",
       status: telemetry?.status ?? "unknown",
-      v: Number.isFinite(telemetry?.v) ? telemetry.v : "—",
-      dist: Number.isFinite(telemetry?.dist) ? telemetry.dist : "—",
-      battery: Number.isFinite(telemetry?.battery) ? telemetry.battery : "—",
     }),
     [telemetry]
   );
+
+  // Filas a mostrar en la tabla (preferir logs del SSE;
+  // si no hay, invento una fila con la última telemetría para que no quede vacío)
+  const eventRows = useMemo(() => {
+    if (Array.isArray(logs) && logs.length > 0) return logs;
+    if (!telemetry) return [];
+    return [
+      {
+        type: "telemetry",
+        data: {
+          v: telemetry.v ?? null,
+          dist: telemetry.dist ?? null,
+          battery: telemetry.battery ?? null,
+        },
+        ts: Date.now(),
+      },
+    ];
+  }, [logs, telemetry]);
 
   return (
     <div className="main" style={{ display: "grid", gap: 16 }}>
@@ -135,35 +151,35 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* EVENTOS RECIENTES (incluye bloque de telemetría) */}
+      {/* EVENTOS RECIENTES */}
       <div className="card">
         <div className="card-title">Eventos recientes</div>
 
-        {/* Bloque de telemetría arriba */}
+        {/* Encabezado: SOLO modo y estado */}
         <div
           className="muted small"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
             gap: 8,
             padding: "8px 0 12px",
             borderBottom: "1px solid var(--border)",
             marginBottom: 8,
           }}
         >
-          <div>Modo: <b>{telemView.mode}</b></div>
-          <div>Estado: <b>{telemView.status}</b></div>
-          <div>Velocidad: <b>{telemView.v}</b> m/s</div>
-          <div>Distancia: <b>{telemView.dist}</b> m</div>
-          <div>Batería: <b>{telemView.battery}</b> %</div>
+          <div>Modo: <b>{telemHeader.mode}</b></div>
+          <div>Estado: <b>{telemHeader.status}</b></div>
         </div>
 
         <div className="table">
           <div className="tr head">
-            <div>Tipo</div><div>Detalle</div><div>Hora</div>
+            <div>Tipo</div>
+            <div>Detalle</div>
+            <div>Hora</div>
           </div>
-          {Array.isArray(logs) && logs.length > 0 ? (
-            logs.slice(0, 20).map((l, i) => (
+
+          {eventRows.length > 0 ? (
+            eventRows.slice(0, 20).map((l, i) => (
               <div className="tr" key={i}>
                 <div>{l.type || l.level || "log"}</div>
                 <div>
